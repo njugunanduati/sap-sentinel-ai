@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -61,17 +62,32 @@ class InterfaceIncident(Base):
         default="SENTINEL"
     )
 
-    remediation_action: Mapped[str | None] = mapped_column(
+    remediation_action: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True
     )
 
+    investigation_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    remediation_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    remediated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.now
     )
 
-    resolved_at: Mapped[datetime | None] = mapped_column(
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime,
         nullable=True
     )

@@ -1,0 +1,21 @@
+VALID_STORES = {
+    "STORE-101",
+    "STORE-102",
+    "STORE-103",
+    "STORE-104",
+    "STORE-105"
+}
+
+
+VALID_MATERIALS = {
+    "MAT-10001",
+    "MAT-10002",
+    "MAT-10003",
+    "MAT-10004",
+    "MAT-10005"
+}
+
+
+SUPPORTED_CURRENCIES = {
+    "USD"
+}

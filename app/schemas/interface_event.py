@@ -1,6 +1,8 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+from app.services.error_codes import IncidentStatus
+
 class InterfaceEventCreate(BaseModel):
     interface_id: str
     event_id: str
