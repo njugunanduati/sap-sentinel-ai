@@ -82,16 +82,16 @@ def update_incident_status(
     incident.status = new_status.value
 
     if new_status == IncidentStatus.INVESTIGATING:
-        incident.investigation_started_at = datetime.now
+        incident.investigation_started_at = datetime.now()
 
     elif new_status == IncidentStatus.REMEDIATION_PENDING:
-        incident.remediation_started_at = datetime.now
+        incident.remediation_started_at = datetime.now()
 
     elif new_status == IncidentStatus.REMEDIATED:
-        incident.remediated_at = datetime.now
+        incident.remediated_at = datetime.now()
 
     elif new_status == IncidentStatus.CLOSED:
-        incident.resolved_at = datetime.now
+        incident.resolved_at = datetime.now()
 
     db.commit()
     db.refresh(incident)

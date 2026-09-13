@@ -1,0 +1,103 @@
+name: CI → CT → CD
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: sentinel-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PYTHON_VERSION: '3.11'
+  DATABASE_URL: sqlite://
+  PYTHONDONTWRITEBYTECODE: '1'
+jobs:
+  ci:
+    name: CI / dependency and syntax validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m pip check
+      # No linter is configured in this repository; validate syntax and imports.
+      - run: python -m compileall -q app simulator tests migrations
+      - run: python -c "from app.main import app; assert app.openapi()['paths']"
+      - run: docker compose config --quiet
+  ct:
+    name: CT / isolated pytest suite
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: python -m pip install -r requirements-test.txt
+      # conftest overrides DATABASE_URL and creates a fresh SQLite file per test.
+      - run: python -m pytest -q --junitxml=test-results/pytest.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-results
+          path: test-results/pytest.xml
+          if-no-files-found: warn
+          retention-days: 14
+  cd:
+    name: CD / validate container (deployment placeholder)
+    needs: [ci, ct]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Build runtime image
+        run: docker build --tag sap-sentinel-ai:${{ github.sha }} .
+      - name: Smoke-test container with disposable database
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="sap-sentinel-ai:${GITHUB_SHA}"
+          docker run --detach --name sentinel-smoke \
+            --env DATABASE_URL=sqlite:////tmp/sentinel-smoke.sqlite3 \
+            "$image"
+          trap 'docker rm --force sentinel-smoke >/dev/null 2>&1 || true' EXIT
+          docker exec sentinel-smoke python -c \
+            'from app.database import Base, engine; import app.models.interface_event; import app.models.interface_incident; Base.metadata.create_all(engine)'
+          for attempt in {1..30}; do
+            if docker exec sentinel-smoke python -c \
+              'import json, urllib.request; assert json.load(urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=2))["status"] == "UP"; assert json.load(urllib.request.urlopen("http://127.0.0.1:8000/api/v1/interfaces/events", timeout=2)) == []'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs sentinel-smoke
+          exit 1
+      - name: Export validated container
+        run: docker save sap-sentinel-ai:${{ github.sha }} | gzip > sap-sentinel-ai.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sap-sentinel-ai-${{ github.sha }}
+          path: sap-sentinel-ai.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+      - name: Deployment handoff placeholder
+        run: |
+          echo '### Container validated; no deployment performed' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No hosting target or registry is configured. See README.md for the deployment handoff checklist.' >> "$GITHUB_STEP_SUMMARY"

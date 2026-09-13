@@ -26,6 +26,11 @@ class IncidentResponse(BaseModel):
     remediation_action: Optional[str]
 
     created_at: datetime
+
+    investigation_started_at: Optional[datetime]
+    remediation_started_at: Optional[datetime]
+    remediated_at: Optional[datetime]
+    resolved_at: Optional[datetime]
     resolved_at: Optional[datetime]
 
     model_config = {

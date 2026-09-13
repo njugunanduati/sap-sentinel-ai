@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.database import Base, engine, get_db
+from app.database import get_db
 from app.models.interface_event import InterfaceEvent
 from app.models.interface_incident import InterfaceIncident
 from app.schemas.interface_event import InterfaceEventCreate
@@ -12,10 +12,6 @@ from app.services.incidents import create_incident
 from app.api.interfaces import router as interfaces_router
 from app.api.incidents import router as incident_router
 
-
-
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="SAP Sentinel AI",

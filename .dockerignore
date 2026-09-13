@@ -1,0 +1,9 @@
+# Allow only runtime inputs into the build context (including no .env or .git).
+**
+!Dockerfile
+!requirements.txt
+!app/
+!app/**
+**/__pycache__/
+**/*.pyc
+**/.env*

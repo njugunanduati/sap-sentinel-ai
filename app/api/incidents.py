@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -9,7 +9,6 @@ from app.schemas.interface_incident import (
     IncidentResponse,
     IncidentStatusUpdate
 )
-from app.services.incidents import update_incident_status
 
 
 router = APIRouter(
@@ -81,3 +80,80 @@ def get_incident(
         )
 
     return incident
+
+
+@router.get("/metrics/summary")
+def get_incident_metrics(
+    db: Session = Depends(get_db)
+):
+
+    total = db.scalar(
+        select(
+            func.count(InterfaceIncident.id)
+        )
+    ) or 0
+
+    open_incidents = db.scalar(
+        select(
+            func.count(InterfaceIncident.id)
+        ).where(
+            InterfaceIncident.status == "OPEN"
+        )
+    ) or 0
+
+    critical = db.scalar(
+        select(
+            func.count(InterfaceIncident.id)
+        ).where(
+            InterfaceIncident.severity == "CRITICAL"
+        )
+    ) or 0
+
+    remediated = db.scalar(
+        select(
+            func.count(InterfaceIncident.id)
+        ).where(
+            InterfaceIncident.status.in_(
+                ["REMEDIATED", "CLOSED"]
+            )
+        )
+    ) or 0
+
+    return {
+        "total_incidents": total,
+        "open_incidents": open_incidents,
+        "critical_incidents": critical,
+        "remediated_incidents": remediated
+    }
+
+@router.get("/metrics/errors")
+def get_error_distribution(
+    db: Session = Depends(get_db)
+):
+
+    statement = (
+        select(
+            InterfaceIncident.error_code,
+            func.count(
+                InterfaceIncident.id
+            ).label("count")
+        )
+        .group_by(
+            InterfaceIncident.error_code
+        )
+        .order_by(
+            func.count(
+                InterfaceIncident.id
+            ).desc()
+        )
+    )
+
+    results = db.execute(statement).all()
+
+    return [
+        {
+            "error_code": row.error_code,
+            "count": row.count
+        }
+        for row in results
+    ]
